@@ -1,9 +1,9 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-TOKEN = "ВСТАВЬ_СЮДА_ТОКЕН"
-ADMIN_ID = 123456789  # сюда твой Telegram ID
-INVITE_LINK = "https://t.me/your_private_channel"
+TOKEN = "7222954085:AAHOny43-Q2SJvvp2zopq0E8wAw86GZo_4o"
+ADMIN_ID = 7363981707  # сюда твой Telegram ID
+INVITE_LINK = "https://t.me/+JO5FX-FekPE4NWRi"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
