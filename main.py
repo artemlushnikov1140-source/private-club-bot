@@ -1,10 +1,28 @@
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-TOKEN = "7222954085:AAHOny43-Q2SJvvp2zopq0E8wAw86GZo_4o"
-ADMIN_ID = 7363981707  # сюда твой Telegram ID
-INVITE_LINK = "https://t.me/+JO5FX-FekPE4NWRi"
+# ===== ENV =====
+TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
+INVITE_LINK = os.getenv("INVITE_LINK")
 
+# ===== FAKE WEB SERVER =====
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def run_http_server():
+    port = int(os.getenv("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    server.serve_forever()
+
+# ===== TELEGRAM BOT =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("✅ Хочу вступить в приватный канал", callback_data="request")]
@@ -16,10 +34,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-async def handle_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def request_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-
     user = query.from_user
 
     admin_keyboard = [
@@ -29,15 +46,13 @@ async def handle_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ]
 
-    text = (
-        "📩 Новая заявка на вступление\n\n"
-        f"👤 Пользователь: @{user.username or 'без_ника'}\n"
-        f"🆔 ID: {user.id}"
-    )
-
     await context.bot.send_message(
         chat_id=ADMIN_ID,
-        text=text,
+        text=(
+            "📩 Новая заявка в приватный канал\n\n"
+            f"👤 @{user.username or 'без_ника'}\n"
+            f"🆔 ID: {user.id}"
+        ),
         reply_markup=InlineKeyboardMarkup(admin_keyboard)
     )
 
@@ -46,7 +61,7 @@ async def handle_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Пожалуйста, ожидайте решения."
     )
 
-async def handle_admin_decision(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_decision(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
@@ -61,23 +76,26 @@ async def handle_admin_decision(update: Update, context: ContextTypes.DEFAULT_TY
                 f"Вот ссылка для вступления:\n{INVITE_LINK}"
             )
         )
-        await query.edit_message_text("✅ Заявка одобрена, ссылка отправлена.")
+        await query.edit_message_text("✅ Заявка одобрена. Ссылка отправлена.")
     else:
         await context.bot.send_message(
             chat_id=user_id,
-            text="❌ К сожалению, ваша заявка была отклонена."
+            text="❌ К сожалению, Ваша заявка была отклонена."
         )
         await query.edit_message_text("❌ Заявка отклонена.")
 
 def main():
+    # запускаем HTTP-сервер в отдельном потоке
+    threading.Thread(target=run_http_server, daemon=True).start()
+
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_request, pattern="^request$"))
-    app.add_handler(CallbackQueryHandler(handle_admin_decision, pattern="^(approve|reject):"))
+    app.add_handler(CallbackQueryHandler(request_access, pattern="^request$"))
+    app.add_handler(CallbackQueryHandler(admin_decision, pattern="^(approve|reject):"))
 
-    print("Bot is running...")
+    print("Private club bot is running")
     app.run_polling()
 
-if __name__== "__main__":
+if __name__ == "__main__":
     main()
